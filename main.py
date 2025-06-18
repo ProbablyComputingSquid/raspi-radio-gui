@@ -2,12 +2,13 @@ import sys
 import os
 import random
 import pygame
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget,
-    QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
+    QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar,
 )
+from mutagen.mp3 import MP3
 
 def parseSongs(files : list) -> list:
     """
@@ -25,7 +26,13 @@ def parseSongs(files : list) -> list:
         songName = songName.split(".")[0]
         songNames.append(songName)
     return songNames
-
+def seconds_to_time(seconds):
+    """
+    Converts seconds to a formatted time string (MM:SS).
+    """
+    minutes = seconds // 60
+    seconds = seconds % 60
+    return f"{minutes:02}:{seconds:02}"
 class MusicPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -35,6 +42,10 @@ class MusicPlayer(QMainWindow):
         self.current_index = -1
         self.is_paused = False
 
+        self.progress_timer = QTimer(self)
+        self.progress_timer.setInterval(500)  # update every 0.5 seconds
+        self.progress_timer.timeout.connect(self.update_progress_bar)
+        self.current_song_length = 0
 
         # Widgets
         # list widget to display the music queue
@@ -70,17 +81,23 @@ class MusicPlayer(QMainWindow):
         self.song_title.setStyleSheet("font-size: 16px; font-weight: bold;")
         song_author = QLabel("Song Author") # i hope ill figure out how to get the author later
         song_author.setStyleSheet("font-size: 14px; font-style: italic;")
+        self.song_progress = QProgressBar()
+        self.song_progress.setRange(0, 100)
+        self.song_progress.setTextVisible(False)
+        self.song_progress.setMinimumWidth(400)  # Make the progress bar wider
+        self.song_progress_label = QLabel("--:-- / --:--")  # Placeholder for time display
+        self.song_progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.song_progress_label.setStyleSheet("font-size: 12px; color: orangered; border: 0px;")
 
         album_cover = QLabel()
         album_cover.setPixmap(QPixmap("./assets/cd_placeholder.png"))
         album_cover.setScaledContents(True)
         album_cover.setFixedSize(150, 150)
-        album_cover.setStyleSheet("background-color: rgb(255, 255, 255); border: 2px solid black; padding: 10px;")
+        album_cover.setStyleSheet("background-color: darkgray; border: 2px solid orangered; padding: 10px;")
         album_cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Layouts
+        # bottom button layout
         btn_layout = QHBoxLayout()
-
         btn_layout.addWidget(play_btn)
         btn_layout.addWidget(self.pause_btn)
         btn_layout.addWidget(skip_btn)
@@ -94,14 +111,18 @@ class MusicPlayer(QMainWindow):
         song_title_layout.addWidget(self.song_title)
         song_title_layout.addWidget(song_author)
         song_title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        song_title_layout.addWidget(self.song_progress)
+        song_title_layout.addWidget(self.song_progress_label)
         now_layout.addWidget(album_cover)
         now_layout.addLayout(song_title_layout)
+        now_playing_layout = QVBoxLayout()
+        now_playing_layout.addLayout(now_layout)
 
         # center block to hold the now playing display and the list widget
         center_block = QHBoxLayout()
         center_block.addLayout(music_queue)
         now_layout.addStretch(1)  # Add stretch to push the content to the left
-        center_block.addLayout(now_layout)
+        center_block.addLayout(now_playing_layout)
         center_block.addStretch()
         # main layout and shi
         main_layout = QVBoxLayout()
@@ -126,6 +147,12 @@ class MusicPlayer(QMainWindow):
         exit_btn.clicked.connect(self.close)
         # list widget double click to play
         self.list_widget.doubleClicked.connect(self.play_selected)
+
+        # load stylesheet
+        # with whatever the fuck qss is, i guess we have our own language now
+        with open("./assets/style.qss", "r") as f:
+            self.setStyleSheet(f.read())
+
 
     def load_music(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Open Music Files", "", "Audio Files (*.mp3 *.wav)")
@@ -155,20 +182,61 @@ class MusicPlayer(QMainWindow):
         song_name = self.queue[self.current_index].split("/")[-1].split(".")[0]
         self.song_title.setText(song_name)
 
+        # Get song length (in seconds)
+        try:
+            self.current_song_length = self.get_song_length(self.queue[self.current_index])
+            self.song_progress.setRange(0, int(self.current_song_length * 1000))  # use ms for more granularity
+        except Exception as e:
+            self.current_song_length = 0
+            self.song_progress.setRange(0, 100)
+        self.song_progress.setValue(0)
+        self.progress_timer.start()
+        self.song_progress_label.setText(f"00:00 / {seconds_to_time(int(self.current_song_length))}")
+    # update the progress bar every 0.5 seconds or so
+    def update_progress_bar(self):
+        if pygame.mixer.music.get_busy() and self.current_song_length > 0 and not self.is_paused:
+            pos_ms = pygame.mixer.music.get_pos()  # ms since music started playing
+            # Clamp to song length
+            if pos_ms > self.current_song_length * 1000:
+                pos_ms = self.current_song_length * 1000
+            self.song_progress.setValue(pos_ms)
+            self.song_progress_label.setText(f"{seconds_to_time(pos_ms // 1000)} / {seconds_to_time(int(self.current_song_length))}")
+        elif not pygame.mixer.music.get_busy():
+            self.song_progress.setValue(self.song_progress.maximum())
+            self.progress_timer.stop()
+
+    def get_song_length(self, filepath):
+        # Use pygame's Sound for wav, or mutagen for mp3
+        if filepath.lower().endswith('.wav'):
+            sound = pygame.mixer.Sound(filepath)
+            return sound.get_length()
+        elif filepath.lower().endswith('.mp3'):
+            try:
+                audio = MP3(filepath)
+                return audio.info.length
+            except Exception:
+                print("an error hath occurred")
+                return 0
+        else:
+            return 0
+
     def pause_unpause_music(self):
         if pygame.mixer.music.get_busy():
-            if self.is_paused: # so this actually never triggers if the music isnt playing
+            if self.is_paused:
                 pygame.mixer.music.unpause()
                 self.pause_btn.setText("Pause")
+                self.progress_timer.start()
             else:
                 pygame.mixer.music.pause()
                 self.pause_btn.setText("Unpause")
+                self.progress_timer.stop()
             self.is_paused = not self.is_paused
         else:
             print("music is not playing")
             try:
                 pygame.mixer.music.unpause()
                 self.pause_btn.setText("Pause")
+                self.progress_timer.start()
             except pygame.error:
                 print("No music is loaded to unpause.")
 
@@ -183,7 +251,7 @@ class MusicPlayer(QMainWindow):
             return
         random.shuffle(self.queue)
         self.list_widget.clear()
-        self.list_widget.addItems(self.queue)
+        self.list_widget.addItems(parseSongs(self.queue))
         self.current_index = 0
         self._play_current()
 

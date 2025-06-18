@@ -1,0 +1,26 @@
+QPushButton {
+    color: orangered;
+    background-color: lightgray;
+}
+QWidget {
+    background-color: black;
+}
+QLabel {
+    color: red;
+    border: 2px solid orangered;
+    /*background-color: lightslategray;*/
+}
+QProgressBar {
+    border: 2px solid orangered;
+    background-color: lightslategray;
+    color: orangered;
+}
+/* make it so the file picker is actually readable LMAO  */
+QFileDialog, QFileDialog QWidget, QFileDialog QLabel, QFileDialog QAbstractItemView {
+    background-color: white;
+    color: black;
+}
+QListWidget {
+    background-color: darkgray;
+    color: black;
+}
