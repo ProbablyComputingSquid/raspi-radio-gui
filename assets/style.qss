@@ -1,13 +1,17 @@
-QPushButton {
+QWidget QPushButton {
     color: orangered;
-    background-color: lightgray;
+    background-color: black;
+}
+QWidget QPushButton:hover {
+    background-color: rgb(25,25,25);
+    color: orange;
 }
 QWidget {
     background-color: black;
 }
 QLabel {
     color: red;
-    border: 2px solid orangered;
+    /*border: 2px solid orangered;*/
     /*background-color: lightslategray;*/
 }
 QProgressBar {
@@ -21,6 +25,10 @@ QFileDialog, QFileDialog QWidget, QFileDialog QLabel, QFileDialog QAbstractItemV
     color: black;
 }
 QListWidget {
-    background-color: darkgray;
+    background-color: rgb(30,30,30);
     color: black;
+}
+QListWidget::item {
+    background-color: rgb(40,40,40);
+    color: orangered;
 }

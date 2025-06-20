@@ -1,3 +1,6 @@
+# todo: - add icons
+# todo: - add playlist support, write the current queue to a .playlist file or something, also allow loading from it
+# (.playlist files are just a list of file paths, so its not that hard lmao)
 import sys
 import os
 import random
@@ -6,7 +9,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget,
-    QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar,
+    QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QGridLayout,
 )
 from mutagen.mp3 import MP3
 
@@ -51,24 +54,26 @@ class MusicPlayer(QMainWindow):
         # list widget to display the music queue
         self.list_widget = QListWidget()
         self.list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
-        queue_header = QHBoxLayout()
+        queue_header = QGridLayout()
         list_title = QLabel("Music Queue")
-        queue_header.addWidget(list_title)
         load_btn = QPushButton("Load Music")
-        queue_header.addWidget(load_btn)
+        self.item_count = QLabel("Your queue is emptier than my soul. go add something :p")
+        self.item_count.setStyleSheet("font-size: 8px; color: gray; font-style: italic;")
+        queue_header.addWidget(list_title, 0, 0)
+        queue_header.addWidget(load_btn, 0, 1)
+        queue_header.addWidget(self.item_count, 1, 0, 1, 2)  # row, column, row span, column span
 
         music_queue = QVBoxLayout()
         music_queue.addLayout(queue_header)
         music_queue.addWidget(self.list_widget)
 
         # buttons for the player controls on the bottom
-
-
         play_btn = QPushButton("Play")
+
         self.pause_btn = QPushButton("Pause/Unpause")
-        skip_btn = QPushButton("Skip")
-        shuffle_btn = QPushButton("Shuffle")
-        remove_btn = QPushButton("Remove")
+        skip_btn = QPushButton("⏭") # not sure if i should use an icon or text, but we copying spotify
+        shuffle_btn = QPushButton("🔀") # i absolutely hate this emoji, i want unicode
+        remove_btn = QPushButton("✖")
 
         # exit button on the top, make a layout too
         top_layout = QHBoxLayout()
@@ -142,7 +147,7 @@ class MusicPlayer(QMainWindow):
         self.pause_btn.clicked.connect(self.pause_unpause_music)
         skip_btn.clicked.connect(self.skip_music)
         shuffle_btn.clicked.connect(self.shuffle_queue)
-        remove_btn.clicked.connect(lambda: self.list_widget.takeItem(self.list_widget.currentRow()))
+        remove_btn.clicked.connect(self.removeTrack)
         # - the exit button
         exit_btn.clicked.connect(self.close)
         # list widget double click to play
@@ -152,14 +157,19 @@ class MusicPlayer(QMainWindow):
         # with whatever the fuck qss is, i guess we have our own language now
         with open("./assets/style.qss", "r") as f:
             self.setStyleSheet(f.read())
-
-
+    # todo: remove track doesnt actually remove from self.queue
+    def removeTrack(self): # removes current track
+        self.queue.pop(self.list_widget.currentRow())
+        self.list_widget.takeItem(self.list_widget.currentRow())
+        self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
+        self._play_current()
     def load_music(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Open Music Files", "", "Audio Files (*.mp3 *.wav)")
         if files:
             song_names = parseSongs(files)
             self.queue.extend(files)
             self.list_widget.addItems(song_names)
+            self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
 
     def play_music(self):
         if not self.queue:
@@ -176,7 +186,7 @@ class MusicPlayer(QMainWindow):
         pygame.mixer.music.load(self.queue[self.current_index])
         pygame.mixer.music.play()
         self.is_paused = False
-        self.pause_btn.setText("Pause")
+        self.pause_btn.setText("⏸")
         self.list_widget.setCurrentRow(self.current_index)
         # Update the now playing display
         song_name = self.queue[self.current_index].split("/")[-1].split(".")[0]
@@ -194,6 +204,8 @@ class MusicPlayer(QMainWindow):
         self.song_progress_label.setText(f"00:00 / {seconds_to_time(int(self.current_song_length))}")
     # update the progress bar every 0.5 seconds or so
     def update_progress_bar(self):
+        if (len(self.queue)) == 0: # just stick this here to auto update, its bad practice i knowww
+            self.queue.extend("Load some music first ^w^")
         if pygame.mixer.music.get_busy() and self.current_song_length > 0 and not self.is_paused:
             pos_ms = pygame.mixer.music.get_pos()  # ms since music started playing
             # Clamp to song length
@@ -224,18 +236,18 @@ class MusicPlayer(QMainWindow):
         if pygame.mixer.music.get_busy():
             if self.is_paused:
                 pygame.mixer.music.unpause()
-                self.pause_btn.setText("Pause")
+                self.pause_btn.setText("⏸")
                 self.progress_timer.start()
             else:
                 pygame.mixer.music.pause()
-                self.pause_btn.setText("Unpause")
+                self.pause_btn.setText("▶")
                 self.progress_timer.stop()
             self.is_paused = not self.is_paused
         else:
             print("music is not playing")
             try:
                 pygame.mixer.music.unpause()
-                self.pause_btn.setText("Pause")
+                self.pause_btn.setText("⏸")
                 self.progress_timer.start()
             except pygame.error:
                 print("No music is loaded to unpause.")
@@ -245,7 +257,11 @@ class MusicPlayer(QMainWindow):
             return
         self.current_index = (self.current_index + 1) % len(self.queue)
         self._play_current()
-
+    def previous_music(self):
+        if not self.queue:
+            return
+        self.current_index = (self.current_index - 1) % len(self.queue)
+        self._play_current()
     def shuffle_queue(self):
         if not self.queue:
             return
