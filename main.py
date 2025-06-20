@@ -10,6 +10,7 @@ from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget,
     QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QGridLayout,
+    QInputDialog,  # <-- add this import
 )
 from mutagen.mp3 import MP3
 
@@ -36,6 +37,7 @@ def seconds_to_time(seconds):
     minutes = seconds // 60
     seconds = seconds % 60
     return f"{minutes:02}:{seconds:02}"
+
 class MusicPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -57,26 +59,36 @@ class MusicPlayer(QMainWindow):
         queue_header = QGridLayout()
         list_title = QLabel("Music Queue")
         load_btn = QPushButton("Load Music")
+        save_btn = QPushButton("Save Queue to Playlist")
         self.item_count = QLabel("Your queue is emptier than my soul. go add something :p")
         self.item_count.setStyleSheet("font-size: 8px; color: gray; font-style: italic;")
         queue_header.addWidget(list_title, 0, 0)
         queue_header.addWidget(load_btn, 0, 1)
-        queue_header.addWidget(self.item_count, 1, 0, 1, 2)  # row, column, row span, column span
-
+        queue_header.addWidget(save_btn, 0, 2)
+        queue_header.addWidget(self.item_count, 1, 0, 1, 3)  # row, column, row span, column span
+        queue_footer = QHBoxLayout()
+        play_btn = QPushButton("Play")
+        remove_btn = QPushButton("Remove Track")
+        queue_footer.addWidget(play_btn)
+        queue_footer.addWidget(remove_btn)
         music_queue = QVBoxLayout()
         music_queue.addLayout(queue_header)
         music_queue.addWidget(self.list_widget)
+        music_queue.addLayout(queue_footer)
 
         # buttons for the player controls on the bottom
-        play_btn = QPushButton("Play")
 
-        self.pause_btn = QPushButton("Pause/Unpause")
+
+        self.pause_btn = QPushButton("▶")
+        previous_btn = QPushButton("⏮")
         skip_btn = QPushButton("⏭") # not sure if i should use an icon or text, but we copying spotify
         shuffle_btn = QPushButton("🔀") # i absolutely hate this emoji, i want unicode
-        remove_btn = QPushButton("✖")
+
 
         # exit button on the top, make a layout too
         top_layout = QHBoxLayout()
+        self.title_label = QLabel("Raspi Radio Player")
+        top_layout.addWidget(self.title_label)
         top_layout.addStretch(1)  # Add stretch to push the content to the left
         exit_btn = QPushButton("Exit")
         top_layout.addWidget(exit_btn)
@@ -101,13 +113,14 @@ class MusicPlayer(QMainWindow):
         album_cover.setStyleSheet("background-color: darkgray; border: 2px solid orangered; padding: 10px;")
         album_cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # bottom button layout
+        # button layout under songs
         btn_layout = QHBoxLayout()
-        btn_layout.addWidget(play_btn)
+#        btn_layout.addWidget(play_btn)
+        btn_layout.addWidget(previous_btn)
         btn_layout.addWidget(self.pause_btn)
         btn_layout.addWidget(skip_btn)
         btn_layout.addWidget(shuffle_btn)
-        btn_layout.addWidget(remove_btn)
+        #btn_layout.addWidget(remove_btn)
 
         # now playing display
         # somehow i feel like this isnt the best way to do this, but it works
@@ -118,6 +131,7 @@ class MusicPlayer(QMainWindow):
         song_title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         song_title_layout.addWidget(self.song_progress)
         song_title_layout.addWidget(self.song_progress_label)
+        song_title_layout.addLayout(btn_layout)
         now_layout.addWidget(album_cover)
         now_layout.addLayout(song_title_layout)
         now_playing_layout = QVBoxLayout()
@@ -126,14 +140,15 @@ class MusicPlayer(QMainWindow):
         # center block to hold the now playing display and the list widget
         center_block = QHBoxLayout()
         center_block.addLayout(music_queue)
-        now_layout.addStretch(1)  # Add stretch to push the content to the left
+
+        center_block.addStretch()  # Add stretch to push the content to the left
         center_block.addLayout(now_playing_layout)
         center_block.addStretch()
         # main layout and shi
         main_layout = QVBoxLayout()
         main_layout.addLayout(top_layout)
         main_layout.addLayout(center_block)
-        main_layout.addLayout(btn_layout)
+
 
         # stick it all in a container cause yeah thats what the docs said
         container = QWidget()
@@ -143,8 +158,10 @@ class MusicPlayer(QMainWindow):
         # !! connect the functions to the buttons !!
         # - the play queue
         load_btn.clicked.connect(self.load_music)
+        save_btn.clicked.connect(self.prompt_and_save_playlist)
         play_btn.clicked.connect(self.play_music)
         self.pause_btn.clicked.connect(self.pause_unpause_music)
+        previous_btn.clicked.connect(self.previous_music)
         skip_btn.clicked.connect(self.skip_music)
         shuffle_btn.clicked.connect(self.shuffle_queue)
         remove_btn.clicked.connect(self.removeTrack)
@@ -164,12 +181,42 @@ class MusicPlayer(QMainWindow):
         self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
         self._play_current()
     def load_music(self):
-        files, _ = QFileDialog.getOpenFileNames(self, "Open Music Files", "", "Audio Files (*.mp3 *.wav)")
+        files, _filter = QFileDialog.getOpenFileNames(self, "Open Music Files", "/home", "Audio Files (*.mp3 *.wav);;Playlists (*.playlist)")
         if files:
+            if _filter == "Playlists (*.playlist)":
+                title, files = self.load_playlist(files)
             song_names = parseSongs(files)
             self.queue.extend(files)
             self.list_widget.addItems(song_names)
             self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
+    def load_playlist(self, playlist_path):
+        info = ""
+        if isinstance(playlist_path, list): # only allow one playlist at a time. not sure why you would want to load multiple playlists at once
+            playlist_path = playlist_path[0]
+        with open(playlist_path, "r") as f:
+            info = f.read().splitlines()
+        if not info:
+            return None # nothing in the file
+        title = info[0] # first line is the title
+        if not title:
+            title = "Untitled Playlist"
+        self.title_label.setText("Raspi Radio Gui - " + title)  # update the title label
+        return title, info[1:]  # rest of the lines are the file paths
+
+    def prompt_and_save_playlist(self):
+        title, ok = QInputDialog.getText(self, "Playlist Name", "Enter a name for your playlist:")
+        if ok and title:
+            self.save_playlist(title)
+
+    def save_playlist(self, title):
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Playlist", "", "Playlists (*.playlist)")
+        if not filename:
+            return None
+        with open(filename, "w") as f:
+            f.write(title + "\n")
+            for song in self.queue:
+                f.write(song + "\n")
+        return filename
 
     def play_music(self):
         if not self.queue:
