@@ -15,4 +15,4 @@ def play_audio(file_path):
         print(f"An error occurred while trying to play the audio: {e}")
         sys.exit(1)
 def main():
-    play_audio("bad_apple_enhanced.mp3")
+    play_audio("assets/bad_apple_enhanced.mp3")
