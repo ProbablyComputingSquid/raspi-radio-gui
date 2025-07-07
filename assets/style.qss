@@ -39,3 +39,7 @@ QInputDialog {
 QInputDialog QWidget {
     color: white;
 }
+QLineEdit {
+    background-color: gray;
+    border-color: orangered;
+}

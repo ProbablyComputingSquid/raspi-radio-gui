@@ -41,7 +41,8 @@ def seconds_to_time(seconds):
 class MusicPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
-        pygame.mixer.init()
+        pygame.mixer.init(devicename="Loopback Analog Stereo")
+        #pygame.mixer.init()
         self.setWindowTitle("Raspi radio player")
         self.queue = []
         self.current_index = -1
