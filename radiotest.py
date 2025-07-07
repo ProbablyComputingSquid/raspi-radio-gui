@@ -14,8 +14,8 @@ def play_audio(file_path):
     except Exception as e:
         print(f"An error occurred while trying to play the audio: {e}")
         sys.exit(1)
-def read_main_audio():
-    os.execvp("sudo,", ["sudo", "./pi_fm_rds", "-audio", "/dev/snd/pcmC1D0c"])
+def read_main_audio(freq = "107.9"):
+    os.execvp("sudo,", ["sudo", "./pi_fm_rds", "-audio", "/dev/snd/pcmC1D0c", "-f", freq])
 def main():
     #play_audio("assets/bad_apple_enhanced.mp3")
     read_main_audio()

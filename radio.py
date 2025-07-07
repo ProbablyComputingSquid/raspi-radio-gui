@@ -69,9 +69,20 @@ class TransmitRadio(QMainWindow):
         self.central_widget.setLayout(self.central_stack)
         self.setCentralWidget(self.central_widget)
 
+    def transmit(self):
+        frequency = None
+        try:
+            frequency = float(self.frequency_input.text())
+        except ValueError:
+            print("Invalid frequency input. Please enter a valid number.")
+            return
+        if frequency < 87.5 or frequency > 108.0:
+            print("Frequency must be between 87.5 and 108.0 MHz to comply with FCC regulations.")
+            return
+        if (not frequency == None) and (not self.frequency_input.text() == ""):
+            self.parameters["Frequency"] = frequency
 
-def transmit():
-
+        read_main_audio(str(self.parameters["Frequency"]))
 app = QApplication(sys.argv)
 window = TransmitRadio()
 window.show()
