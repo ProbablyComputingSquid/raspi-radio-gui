@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QInputDialog,  # <-- add this import
 )
 from mutagen.mp3 import MP3
+from fetch_youtube_files import fetch_youtube_audio
 
 def parseSongs(files : list) -> list:
     """
@@ -318,6 +319,10 @@ class MusicPlayer(QMainWindow):
         self.list_widget.addItems(parseSongs(self.queue))
         self.current_index = 0
         self._play_current()
+
+    # pull music from youtube or other source
+    def rip_music(self):
+        pass
 
 app = QApplication(sys.argv)
 window = MusicPlayer()

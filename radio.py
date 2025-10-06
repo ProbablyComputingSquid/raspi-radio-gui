@@ -4,7 +4,7 @@ import random
 import pygame
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap
-from radiotest import play_audio # radio playing function i think works??
+from radiotest import * # radio playing function i think works??
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget,
     QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QGridLayout,
@@ -82,6 +82,7 @@ class TransmitRadio(QMainWindow):
         if (not frequency == None) and (not self.frequency_input.text() == ""):
             self.parameters["Frequency"] = frequency
 
+        # what the fuck is going on
         read_main_audio(str(self.parameters["Frequency"]))
 app = QApplication(sys.argv)
 window = TransmitRadio()
