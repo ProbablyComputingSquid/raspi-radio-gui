@@ -1,5 +1,5 @@
-pygame~=2.6.1
-PyQt6~=6.9.1
-mutagen~=1.47.0
-pyttsx3~=2.99
-yt-dlp~=2025.9.26
+pygame>=2.6.1
+PyQt6>=6.9.1
+mutagen>=1.47.0
+pyttsx3>=2.99
+yt-dlp>=2025.9.26

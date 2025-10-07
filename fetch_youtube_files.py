@@ -95,7 +95,8 @@ class YoutubeDownloadPrompt(QMainWindow):
         except Exception as e:
             print(f"Error fetching audio: {e}")
 
-app = QApplication(sys.argv)
-window = YoutubeDownloadPrompt()
-window.show()
-app.exec()
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = YoutubeDownloadPrompt()
+    window.show()
+    app.exec()

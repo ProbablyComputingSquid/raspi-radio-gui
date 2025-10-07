@@ -15,22 +15,22 @@ from PyQt6.QtWidgets import (
 from mutagen.mp3 import MP3
 from fetch_youtube_files import fetch_youtube_audio
 
-def parseSongs(files : list) -> list:
+def parse_songs(files : list) -> list:
     """
     Parses a list of file paths and returns a list of song names.
     """
-    songNames = []
+    song_names = []
     for file in files:
         stats = os.stat(file)  # Check if the file exists and is accessible
         print(stats)
 
         # fallback song name if can't fetch metadata
         # Extract the song name from the file path
-        songName = file.split("/")[-1]
+        song_name = file.split("/")[-1]
         # Remove the file extension
-        songName = songName.split(".")[0]
-        songNames.append(songName)
-    return songNames
+        song_name = song_name.split(".")[0]
+        song_names.append(song_name)
+    return song_names
 def seconds_to_time(seconds):
     """
     Converts seconds to a formatted time string (MM:SS).
@@ -42,8 +42,8 @@ def seconds_to_time(seconds):
 class MusicPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
-        pygame.mixer.init(devicename="Loopback Analog Stereo")
-        #pygame.mixer.init()
+        #pygame.mixer.init(devicename="Loopback Analog Stereo")
+        pygame.mixer.init()
         self.setWindowTitle("Raspi radio player")
         self.queue = []
         self.current_index = -1
@@ -187,7 +187,7 @@ class MusicPlayer(QMainWindow):
         if files:
             if _filter == "Playlists (*.playlist)":
                 title, files = self.load_playlist(files)
-            song_names = parseSongs(files)
+            song_names = parse_songs(files)
             self.queue.extend(files)
             self.list_widget.addItems(song_names)
             self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
@@ -232,6 +232,7 @@ class MusicPlayer(QMainWindow):
         self._play_current()
 
     def _play_current(self):
+
         pygame.mixer.music.load(self.queue[self.current_index])
         pygame.mixer.music.play()
         self.is_paused = False
@@ -275,8 +276,8 @@ class MusicPlayer(QMainWindow):
             try:
                 audio = MP3(filepath)
                 return audio.info.length
-            except Exception:
-                print("an error hath occurred")
+            except Exception as e:
+                print("an error hath occurred:" + str(e))
                 return 0
         else:
             return 0
@@ -316,13 +317,14 @@ class MusicPlayer(QMainWindow):
             return
         random.shuffle(self.queue)
         self.list_widget.clear()
-        self.list_widget.addItems(parseSongs(self.queue))
+        self.list_widget.addItems(parse_songs(self.queue))
         self.current_index = 0
         self._play_current()
 
     # pull music from youtube or other source
     def rip_music(self):
         pass
+
 
 app = QApplication(sys.argv)
 window = MusicPlayer()
