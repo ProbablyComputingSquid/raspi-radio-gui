@@ -13,7 +13,7 @@ def fetch_youtube_audio(link, output_path="."):
     os.environ["YOUTUBE_DL_LINK"] = link
     os.environ["YOUTUBE_DL_OUTPUT_PATH"] = output_path
     cmd = 'yt-dlp -x --audio-format mp3 -o "$YOUTUBE_DL_OUTPUT_PATH/%(title)s.%(ext)s" "$YOUTUBE_DL_LINK"'
-    os.execlp("sh", "sh", "-c", cmd)
+    subprocess.Popen( cmd, shell=True)
 
 
 # try downloading sum shi
@@ -37,7 +37,7 @@ class YoutubeDownloadPrompt(QMainWindow):
             layout = QVBoxLayout()
             filename = "unknown_file.mp3"
             try:
-                filename = subprocess.check_output(["yt-dlp", "--print filename -o %(title)s.%(ext)s " + self.link + " --restrict-filenames"])
+                filename = subprocess.check_output(["yt-dlp", "--print", "filename", "-o", "%(title)s.%(ext)s", self.link, "--restrict-filenames"]).decode().strip()
             except Exception as e:
                 print(f"Error fetching filename: {e}")
 
@@ -69,6 +69,9 @@ class YoutubeDownloadPrompt(QMainWindow):
         self.layout.addWidget(self.link_label)
         self.layout.addWidget(self.link_input)
 
+        self.layout.addWidget(self.query)
+        self.layout.addWidget(self.query_input)
+
         self.layout.addWidget(self.fetch_button)
 
         self.central_widget = QWidget()
@@ -81,20 +84,16 @@ class YoutubeDownloadPrompt(QMainWindow):
 
         if not self.link:
             # try querying for a video with the search query
-            cmd = 'yt-dlp -x --audio-format mp3 --default-search auto ' + self.query_input.text().strip() + ' -o "downloads/%(title)s.%(ext)s" --get-url'
-            os.execlp("sh", "sh", "-c", cmd)
+            print("fetching audio by searching...")
+            cmd = 'yt-dlp -x --audio-format mp3 --default-search auto "' + self.query_input.text().strip() + '" -o "downloads/%(title)s.%(ext)s"'
+            subprocess.Popen(cmd, shell=True)
             return
-        dialog = self.CustomDialog(self, link = self.link)
-        #dialog.link = self.link
-        dialog_status = dialog.exec()
-        if dialog_status == QDialog.accepted:
-            try:
 
-                fetch_youtube_audio(self.link, "downloads")
-            except Exception as e:
-                print(f"Error fetching audio: {e}")
-        elif dialog_status == QDialog.rejected:
-            print("Download cancelled.")
+        try:
+            print("Downloading audio...")
+            fetch_youtube_audio(self.link, "downloads")
+        except Exception as e:
+            print(f"Error fetching audio: {e}")
 
 app = QApplication(sys.argv)
 window = YoutubeDownloadPrompt()
