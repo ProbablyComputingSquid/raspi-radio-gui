@@ -10,10 +10,10 @@ from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget,
     QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QGridLayout,
-    QInputDialog,  # <-- add this import
+    QInputDialog, QDialog, QDialogButtonBox,  # <-- add this import
 )
 from mutagen.mp3 import MP3
-from fetch_youtube_files import fetch_youtube_audio
+from fetch_youtube_files import fetch_youtube_audio, YoutubeDownloadPrompt
 
 def parse_songs(files : list) -> list:
     """
@@ -28,7 +28,7 @@ def parse_songs(files : list) -> list:
         # Extract the song name from the file path
         song_name = file.split("/")[-1]
         # Remove the file extension
-        song_name = song_name.split(".")[0]
+        song_name = " ".join(song_name.split(".")[:-1])
         song_names.append(song_name)
     return song_names
 def seconds_to_time(seconds):
@@ -38,11 +38,22 @@ def seconds_to_time(seconds):
     minutes = seconds // 60
     seconds = seconds % 60
     return f"{minutes:02}:{seconds:02}"
-
+class AlertDialog(QDialog):
+    def __init__(self, text, title = "alert!", parent=None):
+            super().__init__(parent)
+            self.setWindowTitle(text)
+            layout = QVBoxLayout()
+            layout.addWidget(QLabel(text))
+            buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+            buttons.accepted.connect(self.accept)
+            buttons.rejected.connect(self.reject)
+            layout.addWidget(buttons)
+            self.setLayout(layout)
 class MusicPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
         #pygame.mixer.init(devicename="Loopback Analog Stereo")
+        self.yt_dl_window = None
         pygame.mixer.init()
         self.setWindowTitle("Raspi radio player")
         self.queue = []
@@ -61,13 +72,16 @@ class MusicPlayer(QMainWindow):
         queue_header = QGridLayout()
         list_title = QLabel("Music Queue")
         load_btn = QPushButton("Load Music")
+        youtube_rip_btn = QPushButton("Rip Music from Online Source")
         save_btn = QPushButton("Save Queue to Playlist")
         self.item_count = QLabel("Your queue is emptier than my soul. go add something :p")
         self.item_count.setStyleSheet("font-size: 8px; color: gray; font-style: italic;")
         queue_header.addWidget(list_title, 0, 0)
         queue_header.addWidget(load_btn, 0, 1)
         queue_header.addWidget(save_btn, 0, 2)
-        queue_header.addWidget(self.item_count, 1, 0, 1, 3)  # row, column, row span, column span
+        queue_header.addWidget(youtube_rip_btn, 1, 0, 1, 3)
+        queue_header.addWidget(self.item_count, 2, 0, 1, 3)  # row, column, row span, column span
+
         queue_footer = QHBoxLayout()
         play_btn = QPushButton("Play")
         remove_btn = QPushButton("Remove Track")
@@ -167,6 +181,7 @@ class MusicPlayer(QMainWindow):
         skip_btn.clicked.connect(self.skip_music)
         shuffle_btn.clicked.connect(self.shuffle_queue)
         remove_btn.clicked.connect(self.removeTrack)
+        youtube_rip_btn.clicked.connect(self.rip_music) # im an actual idiot, i forgot to connect it and was straight up tweaking
         # - the exit button
         exit_btn.clicked.connect(self.close)
         # list widget double click to play
@@ -182,6 +197,12 @@ class MusicPlayer(QMainWindow):
         self.list_widget.takeItem(self.list_widget.currentRow())
         self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
         self._play_current()
+    # extends the queue with a selected file name
+    def load_music_file(self, path: str):
+        song_names = parse_songs([path])
+        self.queue.extend([path])
+        self.list_widget.addItems(song_names)
+        self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
     def load_music(self):
         files, _filter = QFileDialog.getOpenFileNames(self, "Open Music Files", "/home", "Audio Files (*.mp3 *.wav);;Playlists (*.playlist)")
         if files:
@@ -323,10 +344,20 @@ class MusicPlayer(QMainWindow):
 
     # pull music from youtube or other source
     def rip_music(self):
+        print("here!")
+        self.yt_dl_window = YoutubeDownloadPrompt()
+        self.yt_dl_window.setModal(True)
+        result = self.yt_dl_window.open()
+
+        if result == QDialog.accepted:
+            final_destination = self.yt_dl_window.output_path
+            download_alert = AlertDialog("successfully downloaded to " + final_destination, "Downloading...", self)
+            download_alert.show()
         pass
 
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MusicPlayer()
+    window.show()
 
-app = QApplication(sys.argv)
-window = MusicPlayer()
-window.show()
-app.exec()
+    app.exec()

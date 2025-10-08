@@ -19,8 +19,6 @@ def fetch_youtube_audio(link, output_path="."):
 # try downloading sum shi
 # uhh
 #fetch_youtube_audio("dQw4w9WgXcQ", "./downloads")
-
-class YoutubeDownloadPrompt(QMainWindow):
     class CustomDialog(QDialog):
         def __init__(self, parent=None, link=""):
             super().__init__(parent)
@@ -45,8 +43,13 @@ class YoutubeDownloadPrompt(QMainWindow):
             layout.addWidget(message)
             layout.addWidget(self.buttonBox)
             self.setLayout(layout)
+class YoutubeDownloadPrompt(QDialog):
+
     def __init__(self):
         super().__init__()
+        # load stylesheet
+        with open("./assets/style.qss", "r") as f:
+            self.setStyleSheet(f.read())
         self.link = None
         self.output_path = None
         self.setWindowTitle("grab audio from youtube")
@@ -74,26 +77,39 @@ class YoutubeDownloadPrompt(QMainWindow):
 
         self.layout.addWidget(self.fetch_button)
 
-        self.central_widget = QWidget()
-        self.central_widget.setLayout(self.layout)
-        self.setCentralWidget(self.central_widget)
+        self.setLayout(self.layout)
 
     def fetch_audio(self):
         self.link = self.link_input.text().strip()
 
 
         if not self.link:
-            # try querying for a video with the search query
             print("fetching audio by searching...")
-            cmd = 'yt-dlp -x --audio-format mp3 --default-search auto "' + self.query_input.text().strip() + '" -o "downloads/%(title)s.%(ext)s"'
-            subprocess.Popen(cmd, shell=True)
+            self.progress = QProgressBar()
+            self.layout.addWidget(self.progress)
+            self.progress.setRange(0, 0)  # Indeterminate progress
+            from threading import Thread
+
+            def run_download():
+                cmd = 'yt-dlp -x --audio-format mp3 --default-search auto "' + self.query_input.text().strip() + '" -o "downloads/%(title)s.%(ext)s"'
+                subprocess.run(cmd, shell=True)
+                self.progress.setRange(0, 1)
+                self.accept()
+                self.fetch_button.setEnabled(True)
+
+
+            Thread(target=run_download, daemon=True).start()
+            self.fetch_button.setEnabled(False)
             return
+
 
         try:
             print("Downloading audio...")
             fetch_youtube_audio(self.link, "downloads")
+            self.accept()
         except Exception as e:
             print(f"Error fetching audio: {e}")
+            self.reject()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
