@@ -1,18 +1,18 @@
 import os
 import sys
 import subprocess
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPixmap
+from threading import Thread
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
-    QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget,
+    QApplication, QPushButton, QVBoxLayout, QWidget,
     QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QGridLayout,
-    QInputDialog, QDialog, QDialogButtonBox,  # <-- add this import
+    QInputDialog, QDialog, QDialogButtonBox, QComboBox # <-- add this import
 )
 def fetch_youtube_audio(link, output_path="."):
     # This will replace the current process with youtube-dl
-    os.environ["YOUTUBE_DL_LINK"] = link
-    os.environ["YOUTUBE_DL_OUTPUT_PATH"] = output_path
-    cmd = 'yt-dlp -x --audio-format mp3 -o "$YOUTUBE_DL_OUTPUT_PATH/%(title)s.%(ext)s" "$YOUTUBE_DL_LINK"'
+    os.environ["DL_LINK"] = link
+    os.environ["DL_OUTPUT_PATH"] = output_path
+    cmd = 'yt-dlp -x --audio-format mp3 -o "$DL_OUTPUT_PATH/%(title)s.%(ext)s" "$DL_LINK" --restrict-filenames'
     subprocess.Popen( cmd, shell=True)
 
 
@@ -48,6 +48,7 @@ class YoutubeDownloadPrompt(QDialog):
     def __init__(self):
         super().__init__()
         # load stylesheet
+        self.progress = None
         with open("./assets/style.qss", "r") as f:
             self.setStyleSheet(f.read())
         self.link = None
@@ -57,21 +58,32 @@ class YoutubeDownloadPrompt(QDialog):
 
         self.layout = QVBoxLayout()
 
-        self.link_label = QLabel("YouTube Link:")
+        self.link_label = QLabel("Link to a website (youtube, soundcloud, etc.) with a music file and we will attempt to extract the audio for you. We can download playlists too!:")
         self.link_input = QLineEdit()
-        self.link_input.setPlaceholderText("Enter YouTube video link here")
+        self.link_input.setPlaceholderText("Enter website link here, e.g. ")
 
-
+        self.site_combobox = QComboBox()
+        with open("./assets/supported_sites.txt", "r") as f:
+            sites = f.read().splitlines()
+        self.site_combobox.setEditable(True)
+        self.site_combobox.addItem("auto")
+        self.site_combobox.addItems(sites)
+        self.combolabel = QLabel("look through this list of supported sites to see if your site is supported, otherwise leave it as 'auto':")
         self.fetch_button = QPushButton("Fetch Audio")
 
-        self.query = QLabel("Google Videos Query:")
+        self.query = QLabel("Extract song from youtube by searching (if no link is provided).")
         self.query_input = QLineEdit()
         self.query_input.setPlaceholderText("Enter search query here")
+
+        self.fetch_button.setToolTip("Click to fetch audio from the provided link or search query.")
+
         self.fetch_button.clicked.connect(self.fetch_audio)
+
+
 
         self.layout.addWidget(self.link_label)
         self.layout.addWidget(self.link_input)
-
+        self.layout.addWidget(self.site_combobox)
         self.layout.addWidget(self.query)
         self.layout.addWidget(self.query_input)
 
@@ -88,18 +100,24 @@ class YoutubeDownloadPrompt(QDialog):
             self.progress = QProgressBar()
             self.layout.addWidget(self.progress)
             self.progress.setRange(0, 0)  # Indeterminate progress
-            from threading import Thread
 
-            def run_download():
-                cmd = 'yt-dlp -x --audio-format mp3 --default-search auto "' + self.query_input.text().strip() + '" -o "downloads/%(title)s.%(ext)s"'
+            site = self.site_combobox.currentText().strip()
+
+
+            def run_download(): # defining functions in functions? yessir
+                cmd = 'yt-dlp -x --audio-format mp3 --default-search ' + site + ' "' + self.query_input.text().strip() + '" -o "downloads/%(title)s.%(ext)s"'
                 subprocess.run(cmd, shell=True)
                 self.progress.setRange(0, 1)
-                self.accept()
+
                 self.fetch_button.setEnabled(True)
+                self.progress.deleteLater()
+
+
 
 
             Thread(target=run_download, daemon=True).start()
             self.fetch_button.setEnabled(False)
+
             return
 
 

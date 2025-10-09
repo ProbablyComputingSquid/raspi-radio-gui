@@ -43,3 +43,15 @@ QLineEdit {
     background-color: gray;
     border-color: orangered;
 }
+QComboBox {
+    background-color: gray;
+    color: orangered;
+}
+QComboBox QAbstractItemView {
+    background-color: rgb(30,30,30);
+    color: orangered;
+}
+QComboBox QAbstractItemView::item {
+    background-color: rgb(40,40,40);
+    color: orangered;
+}
