@@ -2,7 +2,8 @@ import os
 import sys
 import subprocess
 from threading import Thread
-from PyQt6.QtCore import pyqtSignal
+from PyQt6 import QtCore
+from PyQt6.QtCore import pyqtSignal, QMetaObject, Qt
 from PyQt6.QtWidgets import (
     QApplication, QPushButton, QVBoxLayout, QWidget,
     QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QGridLayout,
@@ -68,7 +69,8 @@ class YoutubeDownloadPrompt(QDialog):
         self.site_combobox.setEditable(True)
         self.site_combobox.addItem("auto")
         self.site_combobox.addItems(sites)
-        self.combolabel = QLabel("look through this list of supported sites to see if your site is supported, otherwise leave it as 'auto':")
+        self.combo_label = QLabel("look through this list of supported sites to see if your site is supported, otherwise leave it as 'auto':")
+        self.combo_label.setWordWrap(True)
         self.fetch_button = QPushButton("Fetch Audio")
 
         self.query = QLabel("Extract song from youtube by searching (if no link is provided).")
@@ -83,6 +85,7 @@ class YoutubeDownloadPrompt(QDialog):
 
         self.layout.addWidget(self.link_label)
         self.layout.addWidget(self.link_input)
+        self.layout.addWidget(self.combo_label)
         self.layout.addWidget(self.site_combobox)
         self.layout.addWidget(self.query)
         self.layout.addWidget(self.query_input)
@@ -91,9 +94,15 @@ class YoutubeDownloadPrompt(QDialog):
 
         self.setLayout(self.layout)
 
+    @QtCore.pyqtSlot()
+    def finish_download(self):
+        self.progress.setRange(0, 1)
+        self.fetch_button.setEnabled(True)
+        self.progress.deleteLater()
+        self.accept()  # Close the window
+
     def fetch_audio(self):
         self.link = self.link_input.text().strip()
-
 
         if not self.link:
             print("fetching audio by searching...")
@@ -104,20 +113,15 @@ class YoutubeDownloadPrompt(QDialog):
             site = self.site_combobox.currentText().strip()
 
 
-            def run_download(): # defining functions in functions? yessir
+
+            def run_download():
                 cmd = 'yt-dlp -x --audio-format mp3 --default-search ' + site + ' "' + self.query_input.text().strip() + '" -o "downloads/%(title)s.%(ext)s"'
                 subprocess.run(cmd, shell=True)
-                self.progress.setRange(0, 1)
-
-                self.fetch_button.setEnabled(True)
-                self.progress.deleteLater()
-
-
+                QMetaObject.invokeMethod(self, "finish_download", Qt.ConnectionType.QueuedConnection)
 
 
             Thread(target=run_download, daemon=True).start()
             self.fetch_button.setEnabled(False)
-
             return
 
 
