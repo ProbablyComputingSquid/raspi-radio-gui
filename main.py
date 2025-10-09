@@ -13,7 +13,12 @@ from PyQt6.QtWidgets import (
     QInputDialog, QDialog, QDialogButtonBox,  # <-- add this import
 )
 from mutagen.mp3 import MP3
-from fetch_youtube_files import fetch_youtube_audio, YoutubeDownloadPrompt
+from mutagen.easyid3 import EasyID3
+from mutagen import File
+from mutagen.id3 import ID3
+from mutagen.id3 import APIC
+from io import BytesIO
+from fetch_youtube_files import YoutubeDownloadPrompt
 
 def parse_songs(files : list) -> list:
     """
@@ -112,22 +117,23 @@ class MusicPlayer(QMainWindow):
         # now playing display
         self.song_title = QLabel("Song Title") # placeholder text which will get updated
         self.song_title.setStyleSheet("font-size: 16px; font-weight: bold;")
-        song_author = QLabel("Song Author") # i hope ill figure out how to get the author later
-        song_author.setStyleSheet("font-size: 14px; font-style: italic;")
+        self.song_author = QLabel("Song Author") # i hope ill figure out how to get the author later
+        self.song_author.setStyleSheet("font-size: 14px; font-style: italic;")
         self.song_progress = QProgressBar()
         self.song_progress.setRange(0, 100)
         self.song_progress.setTextVisible(False)
         self.song_progress.setMinimumWidth(400)  # Make the progress bar wider
+
         self.song_progress_label = QLabel("--:-- / --:--")  # Placeholder for time display
         self.song_progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.song_progress_label.setStyleSheet("font-size: 12px; color: orangered; border: 0px;")
 
-        album_cover = QLabel()
-        album_cover.setPixmap(QPixmap("./assets/cd_placeholder.png"))
-        album_cover.setScaledContents(True)
-        album_cover.setFixedSize(150, 150)
-        album_cover.setStyleSheet("background-color: darkgray; border: 2px solid orangered; padding: 10px;")
-        album_cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.album_cover = QLabel()
+        self.album_cover.setPixmap(QPixmap("./assets/cd_placeholder.png"))
+        self.album_cover.setScaledContents(True)
+        self.album_cover.setFixedSize(150, 150)
+        self.album_cover.setStyleSheet("background-color: darkgray; border: 2px solid orangered; border-radius: 7px;")
+        self.album_cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # button layout under songs
         btn_layout = QHBoxLayout()
@@ -143,12 +149,12 @@ class MusicPlayer(QMainWindow):
         now_layout = QHBoxLayout() # holder to display the currently playing song
         song_title_layout = QVBoxLayout() # layout to stack song title and author vertically
         song_title_layout.addWidget(self.song_title)
-        song_title_layout.addWidget(song_author)
+        song_title_layout.addWidget(self.song_author)
         song_title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         song_title_layout.addWidget(self.song_progress)
         song_title_layout.addWidget(self.song_progress_label)
         song_title_layout.addLayout(btn_layout)
-        now_layout.addWidget(album_cover)
+        now_layout.addWidget(self.album_cover)
         now_layout.addLayout(song_title_layout)
         now_playing_layout = QVBoxLayout()
         now_playing_layout.addLayout(now_layout)
@@ -261,7 +267,35 @@ class MusicPlayer(QMainWindow):
         self.list_widget.setCurrentRow(self.current_index)
         # Update the now playing display
         song_name = self.queue[self.current_index].split("/")[-1].split(".")[0]
-        self.song_title.setText(song_name)
+        #self.song_title.setText(song_name)
+
+        # Extract and display album art thumbnail
+        album_pixmap = QPixmap("./assets/cd_placeholder.png")
+        filepath = self.queue[self.current_index]
+        if filepath.lower().endswith('.mp3'):
+            try:
+                tags = ID3(filepath)
+                for tag in tags.values():
+                    if isinstance(tag, APIC):
+                        img_data = tag.data
+                        pixmap = QPixmap()
+                        pixmap.loadFromData(img_data)
+                        if not pixmap.isNull():
+                            album_pixmap = pixmap
+                        break
+            except Exception as e:
+                print(f"Error extracting album art: {e}")
+            try:
+                audio = EasyID3(filepath)
+                artist = audio.get('artist', ['Unknown Artist'])[0]
+                title = audio.get('title', [song_name])[0]
+                self.song_author.setText(artist)
+                self.song_title.setText(title)
+            except Exception as e:
+                print(f"Error extracting metadata: {e}")
+                self.song_author.setText("Unknown Artist")
+                self.song_title.setText(song_name)
+        self.album_cover.setPixmap(album_pixmap)
 
         # Get song length (in seconds)
         try:
@@ -355,6 +389,24 @@ class MusicPlayer(QMainWindow):
             download_alert.show()
         pass
 
+def get_song_metadata(filepath):
+    """
+    Returns a dictionary of metadata for the given song file.
+    Supports MP3 and most common formats.
+    """
+    song_metadata = {}
+    try:
+        audio = File(filepath, easy=True)
+        if audio is not None:
+            for key in audio.keys():
+                song_metadata[key] = audio.get(key, [""])[0]
+    except Exception as e:
+        print(f"Error reading metadata: {e}")
+    return song_metadata
+
+
+metadata = get_song_metadata("【東方】Bad Apple!! ＰＶ【影絵】 [FtutLA63Cp8].mp3")
+print(metadata)
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MusicPlayer()

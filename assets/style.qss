@@ -16,9 +16,15 @@ QLabel {
     /*background-color: lightslategray;*/
 }
 QProgressBar {
-    border: 2px solid orangered;
     background-color: lightslategray;
     color: orangered;
+    height: 10px;
+    border-radius: 16px;
+}
+
+QProgressBar::chunk {
+    background-color: orangered;
+    border-radius: 16px;
 }
 /* make it so the file picker is actually readable LMAO  */
 QFileDialog, QFileDialog QWidget, QFileDialog QLabel, QFileDialog QAbstractItemView {

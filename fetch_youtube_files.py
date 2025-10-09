@@ -13,7 +13,7 @@ def fetch_youtube_audio(link, output_path="."):
     # This will replace the current process with youtube-dl
     os.environ["DL_LINK"] = link
     os.environ["DL_OUTPUT_PATH"] = output_path
-    cmd = 'yt-dlp -x --audio-format mp3 -o "$DL_OUTPUT_PATH/%(title)s.%(ext)s" "$DL_LINK" --restrict-filenames'
+    cmd = 'yt-dlp -x --audio-format mp3 -o "$DL_OUTPUT_PATH/%(title)s.%(ext)s" "$DL_LINK" --restrict-filenames --embed-thumbnail --embed-metadata --write-thumbnail'
     subprocess.Popen( cmd, shell=True)
 
 
@@ -115,7 +115,11 @@ class YoutubeDownloadPrompt(QDialog):
 
 
             def run_download():
-                cmd = 'yt-dlp -x --audio-format mp3 --default-search ' + site + ' "' + self.query_input.text().strip() + '" -o "downloads/%(title)s.%(ext)s"'
+                cmd = (
+                    'yt-dlp -x --audio-format mp3 --default-search ' + site +
+                    ' "' + self.query_input.text().strip() +
+                    '" -o "downloads/%(title)s.%(ext)s" --embed-thumbnail --embed-metadata --restrict-filenames --write-thumbnail'
+                )
                 subprocess.run(cmd, shell=True)
                 QMetaObject.invokeMethod(self, "finish_download", Qt.ConnectionType.QueuedConnection)
 
