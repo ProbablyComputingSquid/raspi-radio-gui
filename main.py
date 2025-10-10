@@ -26,6 +26,7 @@ def parse_songs(files : list) -> list:
     """
     song_names = []
     for file in files:
+        print("parsing file: " + file)
         stats = os.stat(file)  # Check if the file exists and is accessible
         print(stats)
 
@@ -128,10 +129,12 @@ class MusicPlayer(QMainWindow):
         self.song_progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.song_progress_label.setStyleSheet("font-size: 12px; color: orangered; border: 0px;")
 
+        # todo: fix the stretch on the album cover
         self.album_cover = QLabel()
         self.album_cover.setPixmap(QPixmap("./assets/cd_placeholder.png"))
         self.album_cover.setScaledContents(True)
-        self.album_cover.setFixedSize(150, 150)
+        self.album_cover.setMinimumWidth(150)
+        self.album_cover.setFixedHeight(150)
         self.album_cover.setStyleSheet("background-color: darkgray; border: 2px solid orangered; border-radius: 7px;")
         self.album_cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -202,11 +205,16 @@ class MusicPlayer(QMainWindow):
         self.queue.pop(self.list_widget.currentRow())
         self.list_widget.takeItem(self.list_widget.currentRow())
         self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
-        self._play_current()
+        if len(self.queue) > 0:
+            self._play_current()
     # extends the queue with a selected file name
     def load_music_file(self, path: str):
-        song_names = parse_songs([path])
-        self.queue.extend([path])
+        print("attempting to load file: " + path)
+        path_list = [path, " "]
+        path_list.pop(1)
+
+        song_names = parse_songs(path_list)
+        self.queue.extend(path_list)
         self.list_widget.addItems(song_names)
         self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
     def load_music(self):
@@ -215,7 +223,11 @@ class MusicPlayer(QMainWindow):
             if _filter == "Playlists (*.playlist)":
                 title, files = self.load_playlist(files)
             song_names = parse_songs(files)
+            if len(self.queue) == 1 and self.queue[0] == "Load some music first ^w^":
+                self.queue = []
             self.queue.extend(files)
+            if len(self.queue) == len(files):
+                self.play_music()
             self.list_widget.addItems(song_names)
             self.item_count.setText(f"There are {len(self.queue)} tracks in queue")
     def load_playlist(self, playlist_path):
@@ -260,8 +272,8 @@ class MusicPlayer(QMainWindow):
 
     def _play_current(self):
 
-        pygame.mixer.music.load(self.queue[self.current_index])
-        pygame.mixer.music.play()
+        if self.current_index < 0 or self.current_index >= len(self.queue):
+            return
         self.is_paused = False
         self.pause_btn.setText("⏸")
         self.list_widget.setCurrentRow(self.current_index)
@@ -296,7 +308,11 @@ class MusicPlayer(QMainWindow):
                 self.song_author.setText("Unknown Artist")
                 self.song_title.setText(song_name)
         self.album_cover.setPixmap(album_pixmap)
+        self.album_cover.setScaledContents(True)
+        ## if announcement
 
+        pygame.mixer.music.load(self.queue[self.current_index])
+        pygame.mixer.music.play()
         # Get song length (in seconds)
         try:
             self.current_song_length = self.get_song_length(self.queue[self.current_index])
@@ -381,12 +397,19 @@ class MusicPlayer(QMainWindow):
         print("here!")
         self.yt_dl_window = YoutubeDownloadPrompt()
         self.yt_dl_window.setModal(True)
-        result = self.yt_dl_window.open()
+        result = self.yt_dl_window.exec()
+        print("result: " + str(result))
+        if result == 1: # accepted
 
-        if result == QDialog.accepted:
-            final_destination = self.yt_dl_window.output_path
-            download_alert = AlertDialog("successfully downloaded to " + final_destination, "Downloading...", self)
-            download_alert.show()
+            downloaded_file = os.path.abspath(self.yt_dl_window.downloaded_file)
+            print("success!" + downloaded_file)
+            if downloaded_file and os.path.exists(downloaded_file):
+                download_alert = AlertDialog("successfully downloaded to " + downloaded_file, "Downloading...", self)
+                download_alert.exec()
+                self.load_music_file(downloaded_file)
+            else:
+                download_alert = AlertDialog("Download finished, but file not found.", "Downloading...", self)
+                download_alert.exec()
         pass
 
 def get_song_metadata(filepath):
@@ -405,8 +428,8 @@ def get_song_metadata(filepath):
     return song_metadata
 
 
-metadata = get_song_metadata("【東方】Bad Apple!! ＰＶ【影絵】 [FtutLA63Cp8].mp3")
-print(metadata)
+#metadata = get_song_metadata("【東方】Bad Apple!! ＰＶ【影絵】 [FtutLA63Cp8].mp3")
+#print(metadata)
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MusicPlayer()

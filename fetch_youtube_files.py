@@ -36,7 +36,7 @@ def fetch_youtube_audio(link, output_path="."):
             layout = QVBoxLayout()
             filename = "unknown_file.mp3"
             try:
-                filename = subprocess.check_output(["yt-dlp", "--print", "filename", "-o", "%(title)s.%(ext)s", self.link, "--restrict-filenames"]).decode().strip()
+                filename = subprocess.check_output(["yt-dlp", "--print", "filename", "-o", "%(title)s.mp3", self.link, "--restrict-filenames"]).decode().strip()
             except Exception as e:
                 print(f"Error fetching filename: {e}")
 
@@ -81,7 +81,7 @@ class YoutubeDownloadPrompt(QDialog):
 
         self.fetch_button.clicked.connect(self.fetch_audio)
 
-
+        self.downloaded_file = None  # Store the downloaded filename
 
         self.layout.addWidget(self.link_label)
         self.layout.addWidget(self.link_input)
@@ -111,28 +111,37 @@ class YoutubeDownloadPrompt(QDialog):
             self.progress.setRange(0, 0)  # Indeterminate progress
 
             site = self.site_combobox.currentText().strip()
-
-
+            query = self.query_input.text().strip()
+            # Get the expected filename before download
+            filename = subprocess.check_output([
+                "yt-dlp", "--print", "filename", "--default-search", site,
+                "-o", "downloads/%(title)s.mp3", query, "--restrict-filenames"
+            ]).decode().strip()
+            self.downloaded_file = filename
 
             def run_download():
                 cmd = (
                     'yt-dlp -x --audio-format mp3 --default-search ' + site +
-                    ' "' + self.query_input.text().strip() +
+                    ' "' + query +
                     '" -o "downloads/%(title)s.%(ext)s" --embed-thumbnail --embed-metadata --restrict-filenames --write-thumbnail'
                 )
                 subprocess.run(cmd, shell=True)
                 QMetaObject.invokeMethod(self, "finish_download", Qt.ConnectionType.QueuedConnection)
 
-
             Thread(target=run_download, daemon=True).start()
             self.fetch_button.setEnabled(False)
             return
 
-
         try:
             print("Downloading audio...")
+            # Get the expected filename before download
+            filename = subprocess.check_output([
+                "yt-dlp", "--print", "filename", "-o", "downloads/%(title)s.%(ext)s", self.link, "--restrict-filenames"
+            ]).decode().strip()
+            self.downloaded_file = filename
             fetch_youtube_audio(self.link, "downloads")
             self.accept()
+            return
         except Exception as e:
             print(f"Error fetching audio: {e}")
             self.reject()
