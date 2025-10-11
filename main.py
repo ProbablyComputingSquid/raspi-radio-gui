@@ -4,7 +4,6 @@
 import sys
 import os
 import random
-import pygame
 import subprocess
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QMetaObject
@@ -12,13 +11,15 @@ from PyQt6.QtGui import QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget,
     QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QGridLayout,
-    QInputDialog, QDialog, QDialogButtonBox, QComboBox # <-- add this import
+    QInputDialog, QDialog, QDialogButtonBox, QComboBox
 )
 from mutagen.mp3 import MP3
 from mutagen.easyid3 import EasyID3
 from mutagen import File
 from mutagen.id3 import ID3, APIC
 from threading import Thread
+from pydub import AudioSegment
+import simpleaudio as sa
 
 
 
@@ -187,18 +188,19 @@ class MusicPlayer(QMainWindow):
         # with whatever the fuck qss is, i guess we have our own language now
         with open("./assets/style.qss", "r") as f:
             self.setStyleSheet(f.read())
-        #pygame.mixer.init(devicename="Loopback Analog Stereo")
         self.yt_dl_window = None
-        pygame.mixer.init()
         self.setWindowTitle("Raspi radio player")
         self.queue = []
         self.current_index = -1
         self.is_paused = False
-
+        self.is_playing = False
+        self.current_song_length = 0
+        self.current_audio = None
+        self.current_play_obj = None
+        self.current_audio_pos = 0  # in ms
         self.progress_timer = QTimer(self)
         self.progress_timer.setInterval(500)  # update every 0.5 seconds
         self.progress_timer.timeout.connect(self.update_progress_bar)
-        self.current_song_length = 0
 
         # Widgets
         # list widget to display the music queue
@@ -412,9 +414,9 @@ class MusicPlayer(QMainWindow):
         if self.current_index < 0 or self.current_index >= len(self.queue):
             return
         self.is_paused = False
+        self.is_playing = True
         self.pause_btn.setText("⏸")
         self.list_widget.setCurrentRow(self.current_index)
-        # Update the now playing display
         song_name = self.queue[self.current_index].split("/")[-1].split(".")[0]
         #self.song_title.setText(song_name)
 
@@ -448,86 +450,90 @@ class MusicPlayer(QMainWindow):
         self.album_cover.setScaledContents(True)
         ## if announcement
 
-        pygame.mixer.music.load(self.queue[self.current_index])
-        pygame.mixer.music.play()
-        # Get song length (in seconds)
+        # Stop previous playback if any
+        if self.current_play_obj:
+            self.current_play_obj.stop()
+            self.current_play_obj = None
+        self.current_audio_pos = 0
+
+        filepath = self.queue[self.current_index]
+        # Load audio
         try:
-            self.current_song_length = self.get_song_length(self.queue[self.current_index])
-            self.song_progress.setRange(0, int(self.current_song_length * 1000))  # use ms for more granularity
+            self.current_audio = AudioSegment.from_file(filepath)
+            self.current_song_length = self.current_audio.duration_seconds
         except Exception as e:
+            print(f"Error loading audio: {e}")
+            self.current_audio = None
             self.current_song_length = 0
-            self.song_progress.setRange(0, 100)
+            return
+
+        # Play audio
+        def play_audio(start_ms):
+            segment = self.current_audio[start_ms:]
+            self.current_play_obj = sa.play_buffer(
+                segment.raw_data,
+                num_channels=segment.channels,
+                bytes_per_sample=segment.sample_width,
+                sample_rate=segment.frame_rate
+            )
+            self.current_play_obj.wait_done()
+            self.is_playing = False
+            self.skip_music()
+
+        self.audio_thread = Thread(target=play_audio, args=(self.current_audio_pos,), daemon=True)
+        self.audio_thread.start()
+
+        self.song_progress.setRange(0, int(self.current_song_length * 1000))  # use ms for more granularity
         self.song_progress.setValue(0)
         self.progress_timer.start()
         self.song_progress_label.setText(f"00:00 / {seconds_to_time(int(self.current_song_length))}")
     # update the progress bar every 0.5 seconds or so
     def update_progress_bar(self):
-        if (len(self.queue)) == 0: # just stick this here to auto update, its bad practice i knowww
-            self.queue.extend("Load some music first ^w^")
-        if pygame.mixer.music.get_busy() and self.current_song_length > 0 and not self.is_paused:
-            pos_ms = pygame.mixer.music.get_pos()  # ms since music started playing
-            # Clamp to song length
-            if pos_ms > self.current_song_length * 1000:
-                pos_ms = self.current_song_length * 1000
-                self.skip_music()
-                return
-            self.song_progress.setValue(pos_ms)
-            self.song_progress_label.setText(f"{seconds_to_time(pos_ms // 1000)} / {seconds_to_time(int(self.current_song_length))}")
-        elif not pygame.mixer.music.get_busy():
+        if not self.current_audio or not self.is_playing:
             self.song_progress.setValue(self.song_progress.maximum())
             self.progress_timer.stop()
-            # Automatically play next song if not paused and song finished
-            if not self.is_paused and self.current_song_length > 0:
+            return
+        # Estimate position
+        if self.current_play_obj and self.current_play_obj.is_playing():
+            self.current_audio_pos += self.progress_timer.interval()
+            if self.current_audio_pos > self.current_song_length * 1000:
+                self.current_audio_pos = self.current_song_length * 1000
+            self.song_progress.setValue(self.current_audio_pos)
+            self.song_progress_label.setText(f"{seconds_to_time(self.current_audio_pos // 1000)} / {seconds_to_time(int(self.current_song_length))}")
+        else:
+            self.song_progress.setValue(self.song_progress.maximum())
+            self.progress_timer.stop()
+            if self.is_playing:
                 self.skip_music()
 
-        #self.check_song_end()
-
-    def check_song_end(self):
-        # This timer checks if the song has ended and skips to the next
-        if (
-            self.current_song_length > 0
-            and not pygame.mixer.music.get_busy()
-            and not self.is_paused
-            and len(self.queue) > 0
-        ):
-            self.skip_music()
-
-    def get_song_length(self, filepath):
-        # Use pygame's Sound for wav, or mutagen for mp3
-        if filepath.lower().endswith('.wav'):
-            sound = pygame.mixer.Sound(filepath)
-            return sound.get_length()
-        elif filepath.lower().endswith('.mp3'):
-            try:
-                audio = MP3(filepath)
-                return audio.info.length
-            except Exception as e:
-                print("an error hath occurred:" + str(e))
-                return 0
-        else:
-            return 0
-
     def pause_unpause_music(self):
-        if pygame.mixer.music.get_busy():
-            #print("paused: " + str(self.is_paused))
-            if self.is_paused:
-                pygame.mixer.music.unpause()
-                self.pause_btn.setText("⏸")
-                self.progress_timer.start()
-            else:
-                pygame.mixer.music.pause()
-                self.pause_btn.setText("▶")
-                self.progress_timer.stop()
-            self.is_paused = not self.is_paused
+        if not self.current_audio or not self.current_play_obj:
+            return
+        if self.is_paused:
+            # Unpause: play from where left off
+            self.is_paused = False
+            self.pause_btn.setText("⏸")
+            self.progress_timer.start()
+            def play_audio(start_ms):
+                segment = self.current_audio[start_ms:]
+                self.current_play_obj = sa.play_buffer(
+                    segment.raw_data,
+                    num_channels=segment.channels,
+                    bytes_per_sample=segment.sample_width,
+                    sample_rate=segment.frame_rate
+                )
+                self.current_play_obj.wait_done()
+                self.is_playing = False
+                self.skip_music()
+            self.audio_thread = Thread(target=play_audio, args=(self.current_audio_pos,), daemon=True)
+            self.audio_thread.start()
         else:
-            #print("music is not playing")
-            try:
-                pygame.mixer.music.unpause()
-                self.pause_btn.setText("⏸")
-                self.progress_timer.start()
-                self.is_paused = False
-            except pygame.error:
-                print("No music is loaded to unpause.")
+            # Pause: stop playback and record position
+            if self.current_play_obj.is_playing():
+                self.current_play_obj.stop()
+            self.is_paused = True
+            self.pause_btn.setText("▶")
+            self.progress_timer.stop()
 
     def skip_music(self):
         if not self.queue:

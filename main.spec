@@ -5,8 +5,15 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=['pygame', 'PyQt6', 'mutagen', 'pyttsx3','yt_dlp'],
+    datas=[
+        ('assets/style.qss', 'assets'),
+        ('assets/cd_placeholder.png', 'assets'),
+        ('assets/shuffle_red.png', 'assets'),
+        ('assets/shuffle_orange.png', 'assets'),
+        ('assets/supported_sites.txt', 'assets'),
+        # Add any other assets you use
+    ],
+    hiddenimports=['PyQt6', 'mutagen', 'mutagen.mp3', 'mutagen.easyid3', 'mutagen.id3', 'pyttsx3','yt_dlp', 'pydub', 'simpleaudio'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
