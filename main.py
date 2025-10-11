@@ -58,6 +58,10 @@ class AlertDialog(QDialog):
 class MusicPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
+        # load stylesheet
+        # with whatever the fuck qss is, i guess we have our own language now
+        with open("./assets/style.qss", "r") as f:
+            self.setStyleSheet(f.read())
         #pygame.mixer.init(devicename="Loopback Analog Stereo")
         self.yt_dl_window = None
         pygame.mixer.init()
@@ -106,11 +110,18 @@ class MusicPlayer(QMainWindow):
         skip_btn = QPushButton("⏭") # not sure if i should use an icon or text, but we copying spotify
         shuffle_btn = QPushButton("🔀") # i absolutely hate this emoji, i want unicode
 
+        # dont question why im doing this jank
+        btn_styles = """
+            padding: 2vh;
+            border: 0px !important;
+        """
+        self.pause_btn.setStyleSheet("font-size: 24px;" + btn_styles) # make the pause button bigger
+        previous_btn.setStyleSheet("font-size: 18px;" + btn_styles)
+        skip_btn.setStyleSheet("font-size: 18px;" + btn_styles)
+        shuffle_btn.setStyleSheet("font-size: 18px;" + btn_styles)
 
         # exit button on the top, make a layout too
         top_layout = QHBoxLayout()
-        self.title_label = QLabel("Raspi Radio Player")
-        top_layout.addWidget(self.title_label)
         top_layout.addStretch(1)  # Add stretch to push the content to the left
         exit_btn = QPushButton("Exit")
         top_layout.addWidget(exit_btn)
@@ -140,16 +151,17 @@ class MusicPlayer(QMainWindow):
 
         # button layout under songs
         btn_layout = QHBoxLayout()
-#        btn_layout.addWidget(play_btn)
+
         btn_layout.addWidget(previous_btn)
         btn_layout.addWidget(self.pause_btn)
         btn_layout.addWidget(skip_btn)
         btn_layout.addWidget(shuffle_btn)
-        #btn_layout.addWidget(remove_btn)
+
 
         # now playing display
         # somehow i feel like this isnt the best way to do this, but it works
         now_layout = QHBoxLayout() # holder to display the currently playing song
+
         song_title_layout = QVBoxLayout() # layout to stack song title and author vertically
         song_title_layout.addWidget(self.song_title)
         song_title_layout.addWidget(self.song_author)
@@ -196,10 +208,7 @@ class MusicPlayer(QMainWindow):
         # list widget double click to play
         self.list_widget.doubleClicked.connect(self.play_selected)
 
-        # load stylesheet
-        # with whatever the fuck qss is, i guess we have our own language now
-        with open("./assets/style.qss", "r") as f:
-            self.setStyleSheet(f.read())
+
     # todo: remove track doesnt actually remove from self.queue
     def removeTrack(self): # removes current track
         self.queue.pop(self.list_widget.currentRow())
@@ -395,12 +404,11 @@ class MusicPlayer(QMainWindow):
     # pull music from youtube or other source
     def rip_music(self):
         print("here!")
-        self.yt_dl_window = YoutubeDownloadPrompt()
+        self.yt_dl_window = YoutubeDownloadPrompt(self)
         self.yt_dl_window.setModal(True)
         result = self.yt_dl_window.exec()
         print("result: " + str(result))
         if result == 1: # accepted
-
             downloaded_file = os.path.abspath(self.yt_dl_window.downloaded_file)
             print("success!" + downloaded_file)
             if downloaded_file and os.path.exists(downloaded_file):

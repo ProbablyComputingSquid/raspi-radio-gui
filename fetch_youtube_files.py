@@ -47,8 +47,8 @@ def fetch_youtube_audio(link, output_path="."):
             self.setLayout(layout)
 class YoutubeDownloadPrompt(QDialog):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         # load stylesheet
         self.progress = None
         with open("./assets/style.qss", "r") as f:
