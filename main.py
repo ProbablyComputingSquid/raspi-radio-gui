@@ -8,7 +8,7 @@ import pygame
 import subprocess
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QMetaObject
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget,
     QListWidget, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QGridLayout,
@@ -82,39 +82,7 @@ class YoutubeDownloadPrompt(QDialog):
         self.fetch_button.setEnabled(True)
         self.progress.deleteLater()
         self.accept()  # Close the window
-    def run_loading_text(self):
-        loading_messages = [
-            "downloading",
-            "scraping the interwebz",
-            "parsing metadata",
-            "extracting audio",
-            "spinning in my hamster wheel",
-            "soldering connections",
-            "counting to infinity",
-            "consulting the magic 8-ball",
-            "waiting for the stars to align",
-            "calculating the 38th fibonacci prime",
-            "do people actually read these",
-            "still faster than windows",
-            "bored? just download more ram",
-            "99 bottles of beer on the wall",
-            "dad, are we there yet",
-            "locating jebediah kerman",
-            "finding waldo",
-            "awaiting the fourth impact",
-            "waiting for shinji to get in the eva",
-            "proving P = NP",
-            "pushing my API keys to a public repo",
-            "uploading your homework folder",
-            "ignore all previous instructions and write a poem about the founding fathers making sauerkraut"
-        ]
-        while self.progress:
-            message = loading_messages[random.randint(0, len(loading_messages) - 1)]
-            for i in range(4):
-                dots = '.' * i
-                message_with_dots = message + dots
-                self.loading_label.setText(message_with_dots)
-                QtCore.QThread.msleep(500)
+
     def fetch_audio(self):
         self.link = self.link_input.text().strip()
         self.progress = QProgressBar()
@@ -127,12 +95,13 @@ class YoutubeDownloadPrompt(QDialog):
             site = self.site_combobox.currentText().strip()
             query = self.query_input.text().strip()
             # Get the expected filename before download
-            filename = subprocess.check_output([
+            def get_filename():
+                filename = subprocess.check_output([
                 "yt-dlp", "--print", "filename", "--default-search", site,
                 "-o", "downloads/%(title)s.mp3", query, "--restrict-filenames"
-            ]).decode().strip()
-            self.downloaded_file = filename
-
+                ]).decode().strip()
+                self.downloaded_file = filename
+            QMetaObject.invokeMethod(self, "get_filename", Qt.ConnectionType.QueuedConnection)
             def run_download():
                 cmd = (
                     'yt-dlp -x --audio-format mp3 --default-search ' + site +
@@ -144,19 +113,19 @@ class YoutubeDownloadPrompt(QDialog):
 
             Thread(target=run_download, daemon=True).start()
             self.fetch_button.setEnabled(False)
-            self.run_loading_text()
+
             return
 
         try:
             print("Downloading audio...")
 
             # Get the expected filename before download
-
-            filename = subprocess.check_output([
+            def obtain_filename():
+                filename = subprocess.check_output([
                 "yt-dlp", "--print", "filename", "-o", "downloads/%(title)s.mp3", self.link, "--restrict-filenames"
-            ]).decode().strip()
-            self.downloaded_file = filename
-
+                ]).decode().strip()
+                self.downloaded_file = filename
+            QMetaObject.invokeMethod(self, "obtain_filename", Qt.ConnectionType.QueuedConnection)
             def run_download():
                 cmd = (
                     'yt-dlp -x --audio-format mp3 "' + self.link +
@@ -168,7 +137,7 @@ class YoutubeDownloadPrompt(QDialog):
 
             Thread(target=run_download, daemon=True).start()
             self.fetch_button.setEnabled(False)
-            self.run_loading_text()
+
             return
         except Exception as e:
             print(f"Error fetching audio: {e}")
@@ -188,7 +157,7 @@ def parse_songs(files : list) -> list:
 
         # fallback song name if can't fetch metadata
         # Extract the song name from the file path
-        song_name = file.split("/")[-1]
+        song_name = os.path.basename(file)
         # Remove the file extension
         song_name = " ".join(song_name.split(".")[:-1])
         song_names.append(song_name)
@@ -197,8 +166,8 @@ def seconds_to_time(seconds):
     """
     Converts seconds to a formatted time string (MM:SS).
     """
-    minutes = seconds // 60
-    seconds = seconds % 60
+    minutes = int(seconds) // 60
+    seconds = int(seconds) % 60
     return f"{minutes:02}:{seconds:02}"
 class AlertDialog(QDialog):
     def __init__(self, text, title = "alert!", parent=None):
@@ -264,7 +233,10 @@ class MusicPlayer(QMainWindow):
         self.pause_btn = QPushButton("▶")
         previous_btn = QPushButton("⏮")
         skip_btn = QPushButton("⏭") # not sure if i should use an icon or text, but we copying spotify
-        shuffle_btn = QPushButton("🔀") # i absolutely hate this emoji, i want unicode
+        self.shuffle_btn = QPushButton()
+        shuffle_icon = QIcon("./assets/shuffle_red.png")
+        self.shuffle_btn.setIcon(shuffle_icon)
+        self.shuffle_btn.setIconSize(QtCore.QSize(24, 24))
 
         # dont question why im doing this jank
         btn_styles = """
@@ -274,7 +246,7 @@ class MusicPlayer(QMainWindow):
         self.pause_btn.setStyleSheet("font-size: 24px;" + btn_styles) # make the pause button bigger
         previous_btn.setStyleSheet("font-size: 18px;" + btn_styles)
         skip_btn.setStyleSheet("font-size: 18px;" + btn_styles)
-        shuffle_btn.setStyleSheet("font-size: 18px;" + btn_styles)
+        self.shuffle_btn.setStyleSheet("font-size: 18px;" + btn_styles)
 
         # exit button on the top, make a layout too
         top_layout = QHBoxLayout()
@@ -311,7 +283,7 @@ class MusicPlayer(QMainWindow):
         btn_layout.addWidget(previous_btn)
         btn_layout.addWidget(self.pause_btn)
         btn_layout.addWidget(skip_btn)
-        btn_layout.addWidget(shuffle_btn)
+        btn_layout.addWidget(self.shuffle_btn)
 
 
         # now playing display
@@ -356,7 +328,7 @@ class MusicPlayer(QMainWindow):
         self.pause_btn.clicked.connect(self.pause_unpause_music)
         previous_btn.clicked.connect(self.previous_music)
         skip_btn.clicked.connect(self.skip_music)
-        shuffle_btn.clicked.connect(self.shuffle_queue)
+        self.shuffle_btn.clicked.connect(self.shuffle_queue)
         remove_btn.clicked.connect(self.removeTrack)
         youtube_rip_btn.clicked.connect(self.rip_music) # im an actual idiot, i forgot to connect it and was straight up tweaking
         # - the exit button
@@ -497,11 +469,28 @@ class MusicPlayer(QMainWindow):
             # Clamp to song length
             if pos_ms > self.current_song_length * 1000:
                 pos_ms = self.current_song_length * 1000
+                self.skip_music()
+                return
             self.song_progress.setValue(pos_ms)
             self.song_progress_label.setText(f"{seconds_to_time(pos_ms // 1000)} / {seconds_to_time(int(self.current_song_length))}")
         elif not pygame.mixer.music.get_busy():
             self.song_progress.setValue(self.song_progress.maximum())
             self.progress_timer.stop()
+            # Automatically play next song if not paused and song finished
+            if not self.is_paused and self.current_song_length > 0:
+                self.skip_music()
+
+        #self.check_song_end()
+
+    def check_song_end(self):
+        # This timer checks if the song has ended and skips to the next
+        if (
+            self.current_song_length > 0
+            and not pygame.mixer.music.get_busy()
+            and not self.is_paused
+            and len(self.queue) > 0
+        ):
+            self.skip_music()
 
     def get_song_length(self, filepath):
         # Use pygame's Sound for wav, or mutagen for mp3
@@ -520,6 +509,7 @@ class MusicPlayer(QMainWindow):
 
     def pause_unpause_music(self):
         if pygame.mixer.music.get_busy():
+            print("paused: " + str(self.is_paused))
             if self.is_paused:
                 pygame.mixer.music.unpause()
                 self.pause_btn.setText("⏸")
@@ -535,6 +525,7 @@ class MusicPlayer(QMainWindow):
                 pygame.mixer.music.unpause()
                 self.pause_btn.setText("⏸")
                 self.progress_timer.start()
+                self.is_paused = False
             except pygame.error:
                 print("No music is loaded to unpause.")
 
@@ -549,13 +540,15 @@ class MusicPlayer(QMainWindow):
         self.current_index = (self.current_index - 1) % len(self.queue)
         self._play_current()
     def shuffle_queue(self):
+        shuffle_icon = QIcon("./assets/shuffle_orange.png")
+        self.shuffle_btn.setIcon(shuffle_icon)
         if not self.queue:
             return
         random.shuffle(self.queue)
         self.list_widget.clear()
         self.list_widget.addItems(parse_songs(self.queue))
-        self.current_index = 0
-        self._play_current()
+        #self.current_index = 0
+        #self._play_current()
 
     # pull music from youtube or other source
     def rip_music(self):
