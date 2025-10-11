@@ -509,7 +509,7 @@ class MusicPlayer(QMainWindow):
 
     def pause_unpause_music(self):
         if pygame.mixer.music.get_busy():
-            print("paused: " + str(self.is_paused))
+            #print("paused: " + str(self.is_paused))
             if self.is_paused:
                 pygame.mixer.music.unpause()
                 self.pause_btn.setText("⏸")
@@ -520,7 +520,7 @@ class MusicPlayer(QMainWindow):
                 self.progress_timer.stop()
             self.is_paused = not self.is_paused
         else:
-            print("music is not playing")
+            #print("music is not playing")
             try:
                 pygame.mixer.music.unpause()
                 self.pause_btn.setText("⏸")
