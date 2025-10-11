@@ -13,7 +13,7 @@ a = Analysis(
         ('assets/supported_sites.txt', 'assets'),
         # Add any other assets you use
     ],
-    hiddenimports=['PyQt6', 'mutagen', 'mutagen.mp3', 'mutagen.easyid3', 'mutagen.id3', 'pyttsx3','yt_dlp', 'pydub', 'simpleaudio'],
+    hiddenimports=['pygame', 'PyQt6', 'mutagen', 'mutagen.mp3', 'mutagen.easyid3', 'mutagen.id3', 'pyttsx3','yt_dlp'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
