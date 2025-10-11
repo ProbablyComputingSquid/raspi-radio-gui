@@ -134,13 +134,27 @@ class YoutubeDownloadPrompt(QDialog):
 
         try:
             print("Downloading audio...")
+            self.progress = QProgressBar()
+            self.layout.addWidget(self.progress)
+            self.progress.setRange(0, 0)
             # Get the expected filename before download
+
             filename = subprocess.check_output([
-                "yt-dlp", "--print", "filename", "-o", "downloads/%(title)s.%(ext)s", self.link, "--restrict-filenames"
+                "yt-dlp", "--print", "filename", "-o", "downloads/%(title)s.mp3", self.link, "--restrict-filenames"
             ]).decode().strip()
             self.downloaded_file = filename
-            fetch_youtube_audio(self.link, "downloads")
-            self.accept()
+
+            def run_download():
+                cmd = (
+                    'yt-dlp -x --audio-format mp3 "' + self.link +
+                    '" -o "downloads/%(title)s.%(ext)s"' +
+                    '--embed-thumbnail --embed-metadata --restrict-filenames --write-thumbnail'
+                )
+                subprocess.run(cmd, shell=True)
+                QMetaObject.invokeMethod(self, "finish_download", Qt.ConnectionType.QueuedConnection)
+
+            Thread(target=run_download, daemon=True).start()
+            self.fetch_button.setEnabled(False)
             return
         except Exception as e:
             print(f"Error fetching audio: {e}")

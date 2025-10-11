@@ -262,7 +262,7 @@ class MusicPlayer(QMainWindow):
     def play_music(self):
         if not self.queue:
             return
-        if self.current_index == -1:
+        if self.current_index <= -1:
             self.current_index = 0
         self._play_current()
 
@@ -407,6 +407,7 @@ class MusicPlayer(QMainWindow):
                 download_alert = AlertDialog("successfully downloaded to " + downloaded_file, "Downloading...", self)
                 download_alert.exec()
                 self.load_music_file(downloaded_file)
+                self.play_music()
             else:
                 download_alert = AlertDialog("Download finished, but file not found.", "Downloading...", self)
                 download_alert.exec()
