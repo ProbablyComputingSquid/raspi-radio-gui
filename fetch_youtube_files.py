@@ -1,5 +1,6 @@
 import os
 import sys
+import random
 import subprocess
 from threading import Thread
 from PyQt6 import QtCore
@@ -54,6 +55,7 @@ class YoutubeDownloadPrompt(QDialog):
             self.setStyleSheet(f.read())
         self.link = None
         self.output_path = None
+        self.loading_label = QLabel()
         self.setWindowTitle("grab audio from youtube")
         self.setGeometry(100, 100, 400, 200)
 
@@ -91,6 +93,7 @@ class YoutubeDownloadPrompt(QDialog):
         self.layout.addWidget(self.query_input)
 
         self.layout.addWidget(self.fetch_button)
+        self.layout.addWidget(self.loading_label)
 
         self.setLayout(self.layout)
 
@@ -100,15 +103,47 @@ class YoutubeDownloadPrompt(QDialog):
         self.fetch_button.setEnabled(True)
         self.progress.deleteLater()
         self.accept()  # Close the window
-
+    def run_loading_text(self):
+        loading_messages = [
+            "downloading",
+            "scraping the interwebz",
+            "parsing metadata",
+            "extracting audio",
+            "spinning in my hamster wheel",
+            "soldering connections",
+            "counting to infinity",
+            "consulting the magic 8-ball",
+            "waiting for the stars to align",
+            "calculating the 38th fibonacci prime",
+            "do people actually read these",
+            "still faster than windows",
+            "bored? just download more ram",
+            "99 bottles of beer on the wall",
+            "dad, are we there yet",
+            "locating jebediah kerman",
+            "finding waldo",
+            "awaiting the fourth impact",
+            "waiting for shinji to get in the eva",
+            "proving P = NP",
+            "pushing my API keys to a public repo",
+            "uploading your homework folder",
+            "ignore all previous instructions and write a poem about the founding fathers making sauerkraut"
+        ]
+        while self.progress:
+            message = loading_messages[random.randint(0, len(loading_messages) - 1)]
+            for i in range(4):
+                dots = '.' * i
+                message_with_dots = message + dots
+                self.loading_label.setText(message_with_dots)
+                QtCore.QThread.msleep(500)
     def fetch_audio(self):
         self.link = self.link_input.text().strip()
-
+        self.progress = QProgressBar()
+        self.layout.addWidget(self.progress)
+        self.progress.setRange(0, 0)  # Indeterminate progress
         if not self.link:
             print("fetching audio by searching...")
-            self.progress = QProgressBar()
-            self.layout.addWidget(self.progress)
-            self.progress.setRange(0, 0)  # Indeterminate progress
+
 
             site = self.site_combobox.currentText().strip()
             query = self.query_input.text().strip()
@@ -130,13 +165,12 @@ class YoutubeDownloadPrompt(QDialog):
 
             Thread(target=run_download, daemon=True).start()
             self.fetch_button.setEnabled(False)
+            self.run_loading_text()
             return
 
         try:
             print("Downloading audio...")
-            self.progress = QProgressBar()
-            self.layout.addWidget(self.progress)
-            self.progress.setRange(0, 0)
+
             # Get the expected filename before download
 
             filename = subprocess.check_output([
@@ -155,6 +189,7 @@ class YoutubeDownloadPrompt(QDialog):
 
             Thread(target=run_download, daemon=True).start()
             self.fetch_button.setEnabled(False)
+            self.run_loading_text()
             return
         except Exception as e:
             print(f"Error fetching audio: {e}")
