@@ -1,6 +1,7 @@
 # raspberry "radio" 
 [![Athena Award Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Faward.athena.hackclub.com%2Fapi%2Fbadge)](https://award.athena.hackclub.com?utm_source=readme)
 
+
 This is a simple music player made with PyQT to play music on a Raspberry Pi, almost like a radio. **This works perfectly on your computer too!** I couldn't quite get the interfaces with PiFMRds to quite work, because it required some weird loopback crap to be going on, so i decided to make it more of a music player than a radio. In the near future when I have more time I'll try to add a section where you can easily broadcast on fm frequencies, but for now I decided to just make an intergration with yt-dlp so you can rip music and playlists from youtube, soundcloud, bandcamp and [so much more](assets/supported_sites.txt)!
 
 ## Features
@@ -23,15 +24,11 @@ requirements:
 
 I originally made this project because I want a better interface for playing music on my raspberry pi home radio station rather than manually writing out bash scripts to play folders of music. Along the way, I decided that it would be a great idea to allow people to download their favorite songs and playlists off other music streaming websites
 
-This project was written in pure python using the PyQT framework for the GUI. i used pygame (honestly a bad idea, i might rewrite to lessen code bloat) for audio playback which was a BAD idea in retrospect but its un poco too late to change it. Perchance i will change it later along the line. 
+This project was written in pure python using the PyQT framework for the GUI. For audio I used pygame (honestly a bad idea, i might rewrite to lessen code bloat) for audio playback which was a BAD idea in retrospect but its un poco too late to change it. Perchance i will change it later along the line. not really sure what other libraries allow for audio playback with pausing, playing and everything like pygame does. tis a shame that i need all of pygame for this, maybe i can import just part of a module for this?
 
-I struggled a lot with the PyQT framework, as I had never used it before. I also had a lot of problem working with yt-dlp because i was originanlly using a deprecated old branch of yt-dlp, youtube-dl but yt-dlp made it easier. Then i had to learn some basic threading stuff so downloads wouldn't block the executor and make it look like the program crashed. 
+I struggled a lot with the PyQT framework, as I had never used it before. I also had a lot of problems working with yt-dlp because i was originanlly using a deprecated old branch of yt-dlp, youtube-dl but yt-dlp made it easier. Then i had to learn some basic threading stuff so downloads wouldn't block the executor and make it look like the program crashed. I also learned a handful about bundling python programs into executables with pyinstaller, i had previously used setuptools and stuff for publishing pypi packages but never publishing executables. let's just say there was much module pain.  
 
 ## installation and troubleshooting
-if your the executable is not working make sure to download all the requisite modules with pip first!! there can be some errors regarding that 
-
-    What your project is/does (and what it's called)
-    Why you made your project
-    How you made your project
-    What you struggled with and what you learned
+if your the executable is not working make sure to download all the requisite modules with pip first!! there can be some errors regarding that. if that doesn't work, try running it in the terminal and raise an issue on the issues tracker tab on the gh repo. 
+    
 

@@ -557,19 +557,21 @@ class MusicPlayer(QMainWindow):
         self.yt_dl_window.setModal(True)
         result = self.yt_dl_window.exec()
         print("result: " + str(result))
+        downloaded_file = self.yt_dl_window.downloaded_file
         if result == 1: # accepted
-            downloaded_file = os.path.abspath(self.yt_dl_window.downloaded_file)
-            print("success!" + downloaded_file)
-            if downloaded_file and os.path.exists(downloaded_file):
-                download_alert = AlertDialog("successfully downloaded to " + downloaded_file, "Downloading...", self)
-                download_alert.exec()
-                self.load_music_file(downloaded_file)
-                self.play_music()
-            elif downloaded_file:
-                download_alert = AlertDialog("Download finished but could not autoload file, try checking " + downloaded_file, "Downloading...", self)
-                download_alert.exec()
+            if downloaded_file:
+                downloaded_file = os.path.abspath(downloaded_file)
+                print("success!" + downloaded_file)
+                if os.path.exists(downloaded_file):
+                    download_alert = AlertDialog("successfully downloaded to " + downloaded_file, "Downloading...", self)
+                    download_alert.exec()
+                    self.load_music_file(downloaded_file)
+                    self.play_music()
+                else:
+                    download_alert = AlertDialog("Download finished but could not autoload file, try checking " + downloaded_file, "Downloading...", self)
+                    download_alert.exec()
             else:
-                download_alert = AlertDialog("Download finished, but file not found.", "Downloading...", self)
+                download_alert = AlertDialog("Download finished, but no file was found or download failed.", "Downloading...", self)
                 download_alert.exec()
         pass
 
