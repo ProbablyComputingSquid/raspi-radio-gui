@@ -17,7 +17,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['readline', 'ncurses'],
     noarchive=False,
     optimize=0,
 )
